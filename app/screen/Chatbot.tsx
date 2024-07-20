@@ -5,8 +5,6 @@ import React, { useState, useCallback, useEffect } from 'react'
 import { GiftedChat, IMessage } from 'react-native-gifted-chat'
 import Toast from "react-native-toast-message"
 
-const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window');
-
 enum optionsType {
   MATH = 'math',
   PHY = 'physics',
@@ -53,8 +51,6 @@ type returnMessageB = {
 export default function Chatbot() {
     const [subject, setSubject] = useState<optionsType>()
     const [messages, setMessages] = useState<IMessage[]>([])
-    const [responseA, setResponseA] = useState<returnMessageA[]>()
-    const [responseB, setResponseB] = useState<returnMessageB>()
 
     const sendQuery = async (dataSending:selectTutor|messageTutor) => {
       let token = await AsyncStorage.getItem('userToken');
@@ -70,39 +66,58 @@ export default function Chatbot() {
     .then((response)=>response.json())
     .then((response)=>{
       if (response.hasOwnProperty('data')){
-        setResponseA(response.data);
+        return response.data;
       }else {
-        setResponseB(response.reply);
+        return response.reply;
       }
     })
-    }
+  }
 
     const tutorSelect = async (subject:optionsType) => {
         setSubject(subject);
-        sendQuery({prompt:{"action": "load", "subject": subject}})
-        .then(()=> {
-          if (responseA){
+        let token = await AsyncStorage.getItem('userToken');
+        if (token) {token = token.replace(/['"]+/g, '')};
+        let dataSending = {prompt:{"action": "load", "subject": subject}}
+        fetch('http://gptapi.congcuxanh.com/tutor', {
+          method: 'POST',
+          body: JSON.stringify(dataSending),
+          headers:{
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+          },
+        })
+        .then((response)=>response.json())
+        .then((response)=> {
             setMessages([]);
             let newArray:IMessage[] = [];
-            responseA.forEach((message, index)=>{
+            response.data.forEach((message:returnMessageA, index:number)=>{
               newArray.push({_id:(index*2) + 1, createdAt:Date.parse(message.createdOn), text:message.messages, user:{_id:1, name: 'User'}})
               newArray.push({_id:(index+1)*2, createdAt:Date.parse(message.createdOn), text:message.response, user:{_id:2, name: 'Tutor'}})
             })
             setMessages(previousMessages =>
               GiftedChat.append(previousMessages, newArray.reverse()),
-            )}
+            )
       })
         .catch((error)=>{console.log(error)})
     } 
 
-    const tutorQuery = async (message:string) => {
+    const tutorQuery = async (message:string, index:string|number) => {
       if (subject){
-        sendQuery({prompt:{action: "tutor", subject: subject},messages:message})
-        .then(()=> {
-          if (responseB){
-            setMessages(previousMessages =>
-              GiftedChat.append(previousMessages, [{_id: Number(messages[messages.length - 1]._id) + 1 || 1, createdAt:new Date(), text:responseB.reply, user:{_id:2, name: 'Tutor'}}]))    
-          }
+        let token = await AsyncStorage.getItem('userToken');
+        if (token) {token = token.replace(/['"]+/g, '')};
+        let dataSending = {prompt:{action: "tutor", subject: subject},messages:message}
+        fetch('http://gptapi.congcuxanh.com/tutor', {
+          method: 'POST',
+          body: JSON.stringify(dataSending),
+          headers:{
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+          },
+        })
+        .then((response)=>response.json())
+        .then((response)=> {
+          let message = [{_id: index + '1', createdAt:new Date(), text:response.reply, user:{_id:2, name: 'Tutor'}}]
+          setMessages(previousMessages => GiftedChat.append(previousMessages, message),)  
           })
         .catch((error)=>{console.log(error)})
       }
@@ -112,7 +127,7 @@ export default function Chatbot() {
     setMessages(previousMessages =>
       GiftedChat.append(previousMessages, messages),
     )
-    tutorQuery(messages[0].text)
+    tutorQuery(messages[0].text,messages[0]._id)
   }, [])
     return(
         <View style={styles.mainBody}>
