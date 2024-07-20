@@ -1,5 +1,5 @@
 import React, {useState, useRef} from 'react';
-import SelectDropdown from 'react-native-select-dropdown';
+import Toast from 'react-native-toast-message';
 import {
   TextInput,
   StyleSheet,
@@ -7,7 +7,6 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
-
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
@@ -15,66 +14,39 @@ type RootStackParamList = {
     SignUpScreen: undefined;
   };
   
-type Account = {
-    email: String;
-    password: String;
-    system: String;
-}
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SignUpScreen'>;
 export default function LoginScreen({navigation}:Props) {
     const [userEmail, setUserEmail] = useState('');
     const [userName, setUserName] = useState(''); 
     const [userPassword, setUserPassword] = useState('');
-    const [userSystem, setUserSystem] = useState('');
-    const [userDealer, setUserDealer] = useState('');
-    const [userLanguage, setUserLanguage] = useState('');
-    const [userLevel, setUserLevel] = useState('');
     const [errortext, setErrortext] = useState('');
 
-    const sysChoice = [
-        {title: "hssv"},
-        {title: "office"}
-    ]
+    const [confirmFlag, setConfirmFlag] = useState(false);
 
-    const levChoice = [
-        {title: "0"},
-        {title: "1"},
-        {title: "2"}
-    ]
+    const validatePassword = (suggest:string) => {
+      return !suggest.match(/^(?=.*[a-z])(?=.*[A-Z])[A-Za-z\d@.#$!%*?&]{6,}$/);
+    }
 
     const handleSubmitPress = () => {
         setErrortext('');
-        if (!userEmail){
-            alert('please enter email');
+        if (!userEmail.toLowerCase().match(/^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i)){
+            Toast.show({type: 'error', text1:'Email không hợp lệ', text2: 'Xin hãy kiểm tra lại'});
             return;
         }
         if (!userName){
-            alert('please enter your name');
+          Toast.show({type: 'error', text1:'Tên chưa điền', text2: 'Làm ơn điền tên bạn'});
             return;
         }
-        if (!userPassword){
-            alert('please enter password');
+        if (validatePassword(userPassword)){
+            Toast.show({type: 'error', text1:'Mật khẩu không hợp lệ', text2: 'Mật khẩu cần ít nhất 6 kí tự và chữ viết hoa'})
             return;
         }
-        if (!userSystem){
-            alert('please enter system');
-            return;
-        }
-        if (!userDealer){
-            alert('please enter your dealer');
-            return;
-        }
-        if (userLanguage.length != 2){
-            alert('please enter your preferred language according to the country code alpha-2');
-            return;
-        }
-
-        if (!userLevel){
-            alert('please enter your current level');
-            return;
-        }
-        let dataSending = {"email": userEmail, "username": userName, "password": userPassword, "system": userSystem, "dealer":userDealer, "language":userLanguage.toLowerCase(), "level":userLevel};
+        if (confirmFlag){
+          Toast.show({type: 'error', text1:'Mật khẩu không khớp khi điền lại', text2: 'Kiểm tra lại mật khẩu của bạn'})
+          return;
+      }
+        let dataSending = {"email": userEmail, "username": userName, "password": userPassword, "system": "hssv", "dealer": "3la", "language": "vn", "level": "0"};
 
         fetch('http://gptapi.congcuxanh.com/users/register', {
             method: 'POST',
@@ -87,29 +59,39 @@ export default function LoginScreen({navigation}:Props) {
         .then((responseJson)=>{
             console.log(responseJson)
             if(responseJson.status === 0){
-                alert('sucessful Sign up!');
+              Toast.show({type: 'success', text1:'Đăng ký thành công'})
+              navigation.navigate("LogInScreen");
             }else{
                 setErrortext("Please check your information");
             }
         })
         .catch((error)=>{
-            console.error(error);
+            Toast.show({type: 'error', text1:error});
         })
 
     }
     return (
         <View style={styles.mainBody}>
+          <View>
+            <Text style={styles.regularTextStyle}>Email:</Text>
+          </View>
             <View style={styles.SectionStyle}>
                 <TextInput
                 style={styles.inputStyle}
                 onChangeText={(userEmail)=>setUserEmail(userEmail)}
-                placeholder='Enter Email'/>
+                placeholder='Email'/>
+            </View>
+            <View>
+              <Text style={styles.regularTextStyle}>Họ tên:</Text>
             </View>
             <View style={styles.SectionStyle}>
                 <TextInput
                 style={styles.inputStyle}
                 onChangeText={(userName)=>setUserName(userName)}
-                placeholder='Enter your name'/>
+                placeholder='User Name'/>
+            </View>
+            <View>
+              <Text style={styles.regularTextStyle}>Mật khẩu:</Text>
             </View>
             <View style={styles.SectionStyle}>
                 <TextInput
@@ -119,63 +101,25 @@ export default function LoginScreen({navigation}:Props) {
                 secureTextEntry={true}
                 />
             </View>
-            <View style={styles.SectionStyle}>
-                <SelectDropdown
-                data={sysChoice}
-                onSelect={(userSystem)=>setUserSystem(userSystem.title)}
-                renderButton={(selectedItem, isOpened) => {
-                    return (
-                      <View>
-                        <Text style={{...styles.inputStyle, ...{paddingVertical:10}}}>
-                          {(selectedItem && selectedItem.title) || 'Select your system'}
-                        </Text>
-                      </View>
-                    );
-                  }}
-                  renderItem={(item, index, isSelected) => {
-                    return (
-                      <View style={{...(isSelected && {backgroundColor: '#D2D9DF'})}}>
-                        <Text>{item.title}</Text>
-                      </View>
-                    );
-                  }}
-                  showsVerticalScrollIndicator={false}
+            <View>
+              <Text style={styles.regularTextStyle}>Xác nhận mật khẩu:</Text>
+            </View>
+            <View style={StyleSheet.compose(styles.SectionStyle, {marginBottom:0})}>
+                <TextInput
+                style = {styles.inputStyle}
+                onChangeText={(userConPassword)=>{userPassword != userConPassword ? setConfirmFlag(true) : setConfirmFlag(false)}}
+                placeholder='Confirm Password'
+                secureTextEntry={true}
                 />
             </View>
-            <View style={styles.SectionStyle}>
-                <TextInput
-                style={styles.inputStyle}
-                onChangeText={(userDealer)=>setUserDealer(userDealer)}
-                placeholder='Enter your dealer'/>
-            </View>
-            <View style={styles.SectionStyle}>
-                <TextInput
-                style={styles.inputStyle}
-                onChangeText={(userLanguage)=>setUserLanguage(userLanguage)}
-                placeholder='Enter your preffered language according to country code alpha-2'/>
-            </View>
-            <View style={styles.SectionStyle}>
-                <SelectDropdown
-                data={levChoice}
-                onSelect={(userLevel)=>setUserLevel(userLevel.title)}
-                renderButton={(selectedItem, isOpened) => {
-                    return (
-                      <View>
-                        <Text style={{...styles.inputStyle, ...{paddingVertical:10}}}>
-                          {(selectedItem && selectedItem.title) || 'Select your current level'}
-                        </Text>
-                      </View>
-                    );
-                  }}
-                  renderItem={(item, index, isSelected) => {
-                    return (
-                      <View style={{...(isSelected && {backgroundColor: '#D2D9DF'})}}>
-                        <Text>{item.title}</Text>
-                      </View>
-                    );
-                  }}
-                  showsVerticalScrollIndicator={false}
-                />
+            {confirmFlag ? (
+              <View style={styles.SectionStyle}>
+                <Text style={styles.errorTextStyle}>Không khớp với mật khẩu trên</Text>
+            </View>) : null}
+            <View>
+              <Text
+                style={{...styles.linkTextStyle,...{textAlign:'right', paddingRight:50}}}
+                onPress={()=>navigation.navigate('LogInScreen')}>Điều khoản sử dụng</Text>
             </View>
             {errortext != '' ? (
                 <Text style={styles.errorTextStyle}>{errortext}</Text>
@@ -184,11 +128,15 @@ export default function LoginScreen({navigation}:Props) {
                 style={styles.buttonStyle}
                 activeOpacity={0.5}
                 onPress={handleSubmitPress}>
-                <Text style={styles.buttonTextStyle}>LOGIN</Text>
+                <Text style={styles.buttonTextStyle}>Đăng ký</Text>
             </TouchableOpacity>
-            <Text
-            style={styles.registerTextStyle}
-            onPress={()=>navigation.navigate('SignUpScreen')}>Sign Up</Text>
+            <View style={{...styles.SectionStyle, ...{alignSelf:'center'}}}>
+              <Text>Đã có tài khoản? </Text>
+              <Text
+                style={styles.linkTextStyle}
+                onPress={()=>navigation.navigate('LogInScreen')}>Đăng nhập</Text>
+            </View>
+          <Toast />
         </View>
   );
 }
@@ -196,52 +144,54 @@ export default function LoginScreen({navigation}:Props) {
 const styles = StyleSheet.create({
     mainBody: {
       flex: 1,
-      justifyContent: 'center',
-      backgroundColor: '#7393B3',
+      backgroundColor: '#dfe9f6',
       alignContent: 'center',
+      paddingTop: 30,
     },
     SectionStyle: {
       flexDirection: 'row',
       height: 40,
-      marginTop: 20,
       marginLeft: 35,
       marginRight: 35,
-      margin: 10,
+      margin: 5,
+      marginBottom:15,
     },
     buttonStyle: {
-      backgroundColor: '#7DE24E',
+      backgroundColor: '#9ae098',
       borderWidth: 0,
       color: '#FFFFFF',
-      borderColor: '#7DE24E',
-      height: 40,
+      borderColor: '#000000',
+      borderTopWidth:2,
+      borderLeftWidth:2,
+      borderRightWidth:2,
+      borderBottomWidth:2,
+      height: 50,
       alignItems: 'center',
-      borderRadius: 30,
       marginLeft: 35,
       marginRight: 35,
       marginTop: 20,
       marginBottom: 25,
     },
     buttonTextStyle: {
-      color: '#FFFFFF',
       paddingVertical: 10,
       fontSize: 16,
     },
+    regularTextStyle:{
+      paddingLeft: 40,
+      fontSize: 16
+    },
     inputStyle: {
       flex: 1,
-      color: 'white',
       paddingLeft: 15,
       paddingRight: 15,
       borderWidth: 1,
-      borderRadius: 30,
-      borderColor: '#dadae8',
+      borderColor: '#000000',
+      backgroundColor: '#FFFFFF'
     },
-    registerTextStyle: {
-      color: '#FFFFFF',
-      textAlign: 'center',
+    linkTextStyle: {
+      color: '#2f6dba',
       fontWeight: 'bold',
       fontSize: 14,
-      alignSelf: 'center',
-      padding: 10,
     },
     errorTextStyle: {
       color: 'red',
